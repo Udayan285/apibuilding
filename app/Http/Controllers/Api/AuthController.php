@@ -9,6 +9,7 @@ use PhpParser\Node\Stmt\Return_;
 use App\Http\Helpers\HttpResponse;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
@@ -20,7 +21,7 @@ class AuthController extends Controller
             $todo = Todo::find($id);
        
             if($todo){
-                return $this->successOrFail("get all todos.","success",$todo,200);
+                return $this->successOrFail("Here your specific Todo.","success",$todo,200);
             }else{
                 return $this->successOrFail("Sorry No todo Found.","fail",[],404);
             }
@@ -37,30 +38,41 @@ class AuthController extends Controller
 
         $user = auth()->user();
         
-
         Todo::create([
-            'user_id' => auth()->id(),
+            'user_id' => auth()->user()->id,
             'title' => $request->title,
-            'detail' => $request->detail,
-            
+            'detail' => $request->detail,           
         ]);
       
-
         $data = $request->all();
         return $this->successOrFail("Todo Created successfully.","success",$data,201);
 
     }
 
-    //not done registter work yet
+
     function registerUser(Request $request) {
 
-        $data = $request->all();
+        $request->validate([
+            "name" => "required",
+            'email' =>'required|email|unique:users,email',
+            "password" => "required"
+        ]);
 
-        // $token = $request->user()->createToken($request->token_name);
+        $user = User::create([
+            "name" => $request->name,
+            "email" => $request->email,
+            "password" => Hash::make($request->password),
+        ]);
 
-        return $this->successOrFail("user registerd","success",$data,201);
+        $token = $user->createToken("ApiToken".$user->name)->plainTextToken;
+        
+        return $this->successOrFail("You are Registered.","success",[
+            "user" => $user,
+            "token"=> $token,
+        ],201);
+       
     }
-    //not done registter work yet
+
 
     function login(Request $request){
 
@@ -71,7 +83,7 @@ class AuthController extends Controller
 
         if(Auth::attempt(['email' => $request->email, 'password' => $request->password])){
             $user = User::where('email',$request->email)->first();
-            $token = $user->createToken("ApiToken".auth()->user()->name)->plainTextToken;
+            $token = $user->createToken("ApiToken".$user->name)->plainTextToken;
 
             return $this->successOrFail("You are Logged In.","success",[
                 "user" => $user,
